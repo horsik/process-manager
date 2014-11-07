@@ -1,0 +1,12 @@
+language: php
+before_script:
+  - mkdir -p build/logs
+install:
+    - composer install
+    - composer require satooshi/php-coveralls:~0.6@stable
+script:
+    - vendor/bin/phpunit --coverage-clover build/logs/clover.xml tests
+after_success:
+    - vendor/bin/coveralls -v
+notifications:
+    email: false

@@ -1,0 +1,16 @@
+{
+    "name": "kampaw/process-manager",
+    "description": "Background process manager",
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=5.3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.3.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kampaw\\ProcessManager\\": "src/"
+        }
+    }
+}

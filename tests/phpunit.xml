@@ -1,0 +1,12 @@
+<phpunit bootstrap="../vendor/autoload.php" colors="true">
+    <testsuites>
+        <testsuite name="process-manager">
+            <directory suffix="Test.php">.</directory>
+        </testsuite>
+    </testsuites>
+    <filter>
+        <blacklist>
+            <directory>./TestAssets</directory>
+        </blacklist>
+    </filter>
+</phpunit>
