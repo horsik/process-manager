@@ -72,12 +72,10 @@ class Process
             $this->terminate();
         }
 
-        if (pcntl_wexitstatus($this->status) !== 126) {
-            $files = array($this->stdin, $this->stdout, $this->stderr);
-
-            foreach (array_filter($files) as $file) {
-                unlink($file);
-            }
+        if (!is_null($this->status)) {
+            unlink($this->stdin);
+            unlink($this->stdout);
+            unlink($this->stderr);
         }
     }
 
@@ -189,26 +187,31 @@ class Process
         if (!$this->command) {
             throw new UnexpectedValueException('Command have to be set prior to execution');
         }
+        if ($this->pid) {
+            throw new RuntimeException("Process {$this->pid} already running");
+        }
 
-        $this->stdin  = tempnam(sys_get_temp_dir(), '');
-        $this->stdout = tempnam(sys_get_temp_dir(), '');
-        $this->stderr = tempnam(sys_get_temp_dir(), '');
+        if (is_null($this->status)) {
+            $this->stdin  = tempnam(sys_get_temp_dir(), '');
+            $this->stdout = tempnam(sys_get_temp_dir(), '');
+            $this->stderr = tempnam(sys_get_temp_dir(), '');
+        }
 
         switch ($this->pid = pcntl_fork()) {
             // @codeCoverageIgnoreStart
             case 0:
-                set_error_handler(function() { throw new RuntimeException(); });
-
                 fclose(STDIN);
                 fclose(STDOUT);
                 fclose(STDERR);
 
-                $streams[] = fopen($this->stdin,  'r+');
-                $streams[] = fopen($this->stdout, 'w+');
-                $streams[] = fopen($this->stderr, 'w+');
+                $stdin  = fopen($this->stdin,  'r');
+                $stdout = fopen($this->stdout, 'w');
+                $stderr = fopen($this->stderr, 'w');
 
                 posix_setsid();
                 posix_setpgid(getmypid(), getmypid());
+
+                set_error_handler(function() { throw new RuntimeException(); });
 
                 try {
                     pcntl_exec($this->command, $this->args, $this->env);
@@ -279,11 +282,7 @@ class Process
     public function writeStdin($data)
     {
         if (!$this->pid) {
-            if (!$this->stdin) {
-                throw new RuntimeException('Process is not started yet');
-            } else {
-                throw new RuntimeException('Process finished excecution');
-            }
+            throw new RuntimeException('Process have to be executing');
         }
 
         $stdin = fopen($this->stdin, 'w+');

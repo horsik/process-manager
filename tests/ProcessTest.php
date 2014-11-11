@@ -395,4 +395,31 @@ class ProcessTest extends TestCase
 
         $this->assertEmpty($result);
     }
+
+    /**
+     * @test
+     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
+     */
+    public function Execute_TwiceProcessNotFinished_ThrowsException()
+    {
+        $this->process->setCommand('/bin/cat');
+        $this->process->execute();
+        $this->process->execute();
+    }
+
+    /**
+     * @test
+     */
+    public function Execute_Twice_StdoutTruncated()
+    {
+        $expected = 'single line';
+        $this->process->setCommand('/bin/echo')->setArgs(array($expected));
+        $this->process->execute();
+        $this->process->waitToFinish();
+        $this->process->execute();
+        $this->process->waitToFinish();
+        $result = $this->process->readStdout();
+
+        $this->assertEquals($expected, $result);
+    }
 }
