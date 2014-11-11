@@ -16,6 +16,12 @@ class ProcessTest extends TestCase
     {
         $this->process = new Process();
     }
+
+    public function tearDown()
+    {
+        unset($this->process);
+    }
+
     /**
      * @test
      * @expectedException \Kampaw\ProcessManager\Exception\InvalidArgumentException
@@ -44,7 +50,7 @@ class ProcessTest extends TestCase
     public function SetCommand_ExecutableDirectory_ThrowsException()
     {
         $filename = __DIR__ . '/TestAsset/executable_directory';
-        mkdir($filename);
+        @mkdir($filename);
         chmod($filename, 0770);
 
         $this->process->setCommand($filename);
@@ -224,5 +230,169 @@ class ProcessTest extends TestCase
         $result = $this->process->getStatus();
 
         $this->assertEquals(126, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStdout_NoOutput_ReturnsNull()
+    {
+        $this->process->setCommand('/bin/true')->execute();
+        $this->process->waitToFinish();
+        $result = $this->process->readStdout();
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * @test
+     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
+     */
+    public function ReadStdout_ProcessNotStarted_ThrowsException()
+    {
+        $this->process->setCommand('/bin/echo')->readStdout();
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStdout_EchoSingleLine_ReturnsSingleLine()
+    {
+        $expected = 'single line';
+        $this->process->setCommand('/bin/echo')->setArgs(array('-n', $expected))->execute();
+        $this->process->waitToFinish();
+        $result = $this->process->readStdout();
+
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStdout_MultilineCat_ReturnsArray()
+    {
+        $asset = __DIR__ . '/TestAsset/multiline';
+        $this->process->setCommand('/bin/cat')->setArgs(array($asset))->execute();
+        $this->process->waitToFinish();
+        $expected = file($asset, FILE_IGNORE_NEW_LINES);
+        $result = $this->process->readStdout();
+
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStderr_NoOutput_ReturnsNull()
+    {
+        $this->process->setCommand('/bin/true')->execute();
+        $this->process->waitToFinish();
+        $result = $this->process->readStderr();
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * @test
+     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
+     */
+    public function ReadStderr_ProcessNotStarted_ThrowsException()
+    {
+        $this->process->readStderr();
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStderr_SingleLine_ReturnsSingleLine()
+    {
+        $asset = __DIR__ . '/TestAsset/echo_line_stderr.sh';
+        chmod($asset, 0700);
+
+        $this->process->setCommand($asset)->execute();
+        $this->process->waitToFinish();
+        $result = $this->process->readStderr();
+        $expected = "single line stderr";
+
+        $this->assertSame($expected, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function ReadStderr_MultilineCat_ReturnsArray()
+    {
+        $asset = __DIR__ . '/TestAsset/multiline_stderr.sh';
+        chmod($asset, 0700);
+
+        $this->process->setCommand($asset)->execute();
+        $this->process->waitToFinish();
+        $expected = file(strtok($asset, '_'), FILE_IGNORE_NEW_LINES);
+        $result = $this->process->readStderr();
+
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function WriteStdin_NBytes_ReturnsN()
+    {
+        $data = 'single line stdin';
+
+        $this->process->setCommand('/bin/true')->execute();
+        $expected = strlen($data);
+        $result = $this->process->writeStdin($data);
+        $this->process->waitToFinish();
+
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function WriteStdin_CatSingleLine_ReturnsSingleLineStdout()
+    {
+        $expected = 'single line stdin';
+
+        $pid = $this->process->setCommand('/bin/cat')->execute();
+        $this->process->writeStdin($expected);
+        usleep(50000);
+        $result = $this->process->readStdout();
+        posix_kill($pid, SIGTERM);
+
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * @test
+     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
+     */
+    public function WriteStdin_ProcessNotStarted_ThrowsException()
+    {
+        $this->process->writeStdin('');
+    }
+
+    /**
+     * @test
+     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
+     */
+    public function WriteStdin_ProcessFinished_ThrowsException()
+    {
+        $this->process->setCommand('/bin/true')->execute();
+        $this->process->waitToFinish();
+        $this->process->writeStdin('');
+    }
+
+    /**
+     * @test
+     */
+    public function Terminate_ProcessIsRunning_Terminates()
+    {
+        $pid = $this->process->setCommand('/bin/sleep')->setArgs(array(10))->execute();
+        $this->process->terminate();
+        $result = exec("ps --no-header $pid");
+
+        $this->assertEmpty($result);
     }
 }

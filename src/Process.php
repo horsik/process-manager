@@ -35,6 +35,21 @@ class Process
     protected $status;
 
     /**
+     * @var resource $stdout
+     */
+    protected $stdout;
+
+    /**
+     * @var resource $stderr
+     */
+    protected $stderr;
+
+    /**
+     * @var resource $stdin
+     */
+    protected $stdin;
+
+    /**
      * @param $command
      * @param array $args
      * @param array $env
@@ -49,6 +64,21 @@ class Process
 
         $this->setArgs($args);
         $this->setEnv($env);
+    }
+
+    public function __destruct()
+    {
+        if ($this->pid) {
+            $this->terminate();
+        }
+
+        if (pcntl_wexitstatus($this->status) !== 126) {
+            $files = array($this->stdin, $this->stdout, $this->stderr);
+
+            foreach (array_filter($files) as $file) {
+                unlink($file);
+            }
+        }
     }
 
     /**
@@ -160,10 +190,25 @@ class Process
             throw new UnexpectedValueException('Command have to be set prior to execution');
         }
 
+        $this->stdin  = tempnam(sys_get_temp_dir(), '');
+        $this->stdout = tempnam(sys_get_temp_dir(), '');
+        $this->stderr = tempnam(sys_get_temp_dir(), '');
+
         switch ($this->pid = pcntl_fork()) {
             // @codeCoverageIgnoreStart
             case 0:
                 set_error_handler(function() { throw new RuntimeException(); });
+
+                fclose(STDIN);
+                fclose(STDOUT);
+                fclose(STDERR);
+
+                $streams[] = fopen($this->stdin,  'r+');
+                $streams[] = fopen($this->stdout, 'w+');
+                $streams[] = fopen($this->stderr, 'w+');
+
+                posix_setsid();
+                posix_setpgid(getmypid(), getmypid());
 
                 try {
                     pcntl_exec($this->command, $this->args, $this->env);
@@ -186,14 +231,14 @@ class Process
     public function dispatchSignals()
     {
         if (!$this->pid) {
-            throw new RuntimeException('Process is not running');
+            throw new RuntimeException('Process is not started yet');
         }
 
-        if (pcntl_waitpid($this->pid, $status, WNOHANG)) {
+        if (pcntl_waitpid($this->pid, $this->status, WNOHANG)) {
             $this->pid = null;
         };
 
-        return $status;
+        return $this->status;
     }
 
     /**
@@ -202,12 +247,84 @@ class Process
     public function waitToFinish()
     {
         if (!$this->pid) {
-            throw new RuntimeException('Process is not running');
+            throw new RuntimeException('Process is not started yet');
         }
 
         pcntl_waitpid($this->pid, $this->status);
         $this->pid = null;
 
         return $this->status;
+    }
+
+    /**
+     * @return array|mixed|null
+     */
+    public function readStdout()
+    {
+        return $this->readStream($this->stdout);
+    }
+
+    /**
+     * @return array|mixed|null
+     */
+    public function readStderr()
+    {
+        return $this->readStream($this->stderr);
+    }
+
+    /**
+     * @param string $data
+     * @return int
+     */
+    public function writeStdin($data)
+    {
+        if (!$this->pid) {
+            if (!$this->stdin) {
+                throw new RuntimeException('Process is not started yet');
+            } else {
+                throw new RuntimeException('Process finished excecution');
+            }
+        }
+
+        $stdin = fopen($this->stdin, 'w+');
+        $bytes = fwrite($stdin, $data);
+        fclose($stdin);
+
+        return $bytes;
+    }
+
+    /**
+     * @return $this
+     */
+    public function terminate()
+    {
+        if (posix_kill($this->pid, SIGTERM)) {
+            pcntl_waitpid($this->pid, $this->status);
+            $this->pid = null;
+        };
+
+        return $this;
+    }
+
+    /**
+     * @param $file
+     * @return array|mixed|null
+     */
+    protected function readStream($file)
+    {
+        if (!$file) {
+            throw new RuntimeException('Process is not started yet');
+        }
+
+        $output = file($file, FILE_IGNORE_NEW_LINES);
+
+        switch (count($output)) {
+            case 0:
+                return null;
+            case 1:
+                return current($output);
+            default:
+                return $output;
+        }
     }
 }
