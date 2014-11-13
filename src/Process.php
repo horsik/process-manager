@@ -229,19 +229,18 @@ class Process
     }
 
     /**
-     * @return int
+     * @return bool
      */
     public function dispatchSignals()
     {
         if (!$this->pid) {
-            throw new RuntimeException('Process is not started yet');
-        }
-
-        if (pcntl_waitpid($this->pid, $this->status, WNOHANG)) {
+            return true;
+        } elseif (pcntl_waitpid($this->pid, $this->status, WNOHANG)) {
             $this->pid = null;
-        };
-
-        return $this->status;
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**

@@ -141,15 +141,6 @@ class ProcessTest extends TestCase
 
     /**
      * @test
-     * @expectedException \Kampaw\ProcessManager\Exception\RuntimeException
-     */
-    public function DispatchSignals_ProcessNotStarted_ThrowsException()
-    {
-        $this->process->dispatchSignals();
-    }
-
-    /**
-     * @test
      */
     public function WaitToFinish_SleepOneSecond_ExecutionDelayed()
     {
