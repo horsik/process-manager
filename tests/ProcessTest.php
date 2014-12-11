@@ -89,15 +89,6 @@ class ProcessTest extends TestCase
 
     /**
      * @test
-     * @expectedException \Kampaw\ProcessManager\Exception\InvalidArgumentException
-     */
-    public function SetEnv_NotArray_ThrowsException()
-    {
-       $this->process->setEnv('not array');
-    }
-
-    /**
-     * @test
      */
     public function Execute_ValidCommand_ReturnsPid()
     {

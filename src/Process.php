@@ -56,7 +56,7 @@ class Process
      * @throws FileAccess
      * @codeCoverageIgnore
      */
-    public function __construct($command = null, $args = array(), $env = array())
+    public function __construct($command = null, $args = array(), array $env = array())
     {
         if ($command) {
             $this->setCommand($command);
@@ -146,14 +146,11 @@ class Process
     }
 
     /**
+     * @codeCoverageIgnore
      * @param array $env
      */
-    public function setEnv($env)
+    public function setEnv(array $env)
     {
-        if (!is_array($env)) {
-            throw new InvalidArgumentException('Argument must be an array');
-        }
-
         $this->env = $env;
     }
 
@@ -296,6 +293,10 @@ class Process
      */
     public function terminate()
     {
+        if (!$this->pid) {
+            throw new RuntimeException('Process is not started yet');
+        }
+
         if (posix_kill($this->pid, SIGTERM)) {
             pcntl_waitpid($this->pid, $this->status);
             $this->pid = null;

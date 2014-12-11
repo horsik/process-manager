@@ -9,7 +9,7 @@ interface ProcessManagerInterface
      * @param array $env
      * @return int
      */
-    public function execute($command, $args = array(), $env = array());
+    public function execute($command, $args = array(), array $env = array());
 
     /**
      * @codeCoverageIgnore

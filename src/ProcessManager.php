@@ -15,7 +15,7 @@ class ProcessManager implements ProcessManagerInterface
      * @param array $env
      * @return int
      */
-    public function execute($command, $args = array(), $env = array())
+    public function execute($command, $args = array(), array $env = array())
     {
         $process = new Process($command, $args, $env);
         $pid = $process->execute();
